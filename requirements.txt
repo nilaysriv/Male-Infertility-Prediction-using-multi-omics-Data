@@ -1,0 +1,13 @@
+
+Flask==3.0.3
+gunicorn==23.0.0
+
+pandas==2.2.2
+numpy==2.0.1
+scikit-learn==1.7.2  # <-- Pinned to the version you trained with
+joblib==1.4.2
+
+GEOparse==2.1.0
+tqdm==4.66.4
+
+chart.js

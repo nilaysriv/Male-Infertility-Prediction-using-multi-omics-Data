@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Male Infertility Predictor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* General Body Styles - Windows 7 Dark Aero Theme */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0d1117;
+            background: radial-gradient(circle, #2c3e50 0%, #0d1117 100%);
+            color: #c9d1d9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Main Container - Aero Glass Effect */
+        .container {
+            background-color: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(15px) saturate(120%);
+            -webkit-backdrop-filter: blur(15px) saturate(120%);
+            padding: 40px;
+            border-radius: 8px;
+            border: 1px solid rgba(139, 148, 158, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #e6edf3;
+            margin-bottom: 10px;
+            font-weight: 600;
+            text-shadow: 0 0 10px rgba(100, 181, 246, 0.3);
+        }
+
+        p {
+            color: #8b949e;
+            margin-bottom: 30px;
+        }
+
+        /* Form Styling */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #484f58;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            background-color: #161b22;
+            color: #c9d1d9;
+        }
+
+        input[type="text"]:focus {
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.3);
+            outline: none;
+        }
+
+        /* Windows 7 Style Glossy Button */
+        button {
+            width: 100%;
+            padding: 12px 15px;
+            background: linear-gradient(to bottom, #3a75c4, #2c5791);
+            color: white;
+            border: 1px solid #58a6ff;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        
+        button:hover {
+            background: linear-gradient(to bottom, #4a85d4, #3c67a1);
+            border-color: #80bfff;
+        }
+
+        /* Result and Error Sections */
+        .result, .error {
+            margin-top: 30px;
+            padding: 15px 20px;
+            border-radius: 6px;
+            text-align: left;
+            border: 1px solid transparent;
+        }
+
+        .result {
+            background-color: rgba(46, 160, 67, 0.2);
+            border-color: rgba(46, 160, 67, 0.5);
+        }
+
+        .error {
+            background-color: rgba(248, 81, 73, 0.2);
+            border-color: rgba(248, 81, 73, 0.5);
+        }
+
+        .result p, .error p {
+            margin: 0;
+            color: #e6edf3;
+            font-size: 16px;
+            font-weight: 400;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Loader Animation */
+        .loader {
+            border: 4px solid #30363d;
+            border-top: 4px solid #58a6ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 30px auto 0;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Chart Container */
+        #chartContainer {
+            margin-top: 30px;
+            height: 400px;
+            width: 100%;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Male Infertility Predictor</h1>
+        <p>Enter a GEO Accession ID (e.g., GSE6967, GSE25561) to predict fertility status based on multi-omics data.</p>
+        
+        <form id="predictionForm">
+            <div class="form-group">
+                <input type="text" id="accessionId" placeholder="Enter GEO Accession ID">
+            </div>
+            <button type="submit">Predict</button>
+        </form>
+
+        <div id="loader" class="loader hidden"></div>
+
+        <div id="result" class="result hidden">
+            <p id="predictionText"></p>
+            <p id="confidenceText"></p>
+        </div>
+
+        <div id="error" class="error hidden">
+            <p id="errorMessage"></p>
+        </div>
+        
+        <div id="chartContainer" class="chart-container hidden">
+            <canvas id="importanceChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('predictionForm');
+            const resultDiv = document.getElementById('result');
+            const predictionText = document.getElementById('predictionText');
+            const confidenceText = document.getElementById('confidenceText');
+            const chartContainer = document.getElementById('chartContainer');
+            const errorDiv = document.getElementById('error');
+            const errorMessage = document.getElementById('errorMessage');
+            const loader = document.getElementById('loader');
+            let featureChart = null; // To hold the chart instance
+
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+
+                // --- Clear previous results and errors ---
+                resultDiv.classList.add('hidden');
+                errorDiv.classList.add('hidden');
+                chartContainer.classList.add('hidden');
+                loader.classList.remove('hidden');
+
+                const accessionIdInput = document.getElementById('accessionId');
+                const accessionId = accessionIdInput.value.trim();
+
+                // --- Frontend Validation ---
+                if (!accessionId) {
+                    showError("Please enter a GEO Accession ID.");
+                    loader.classList.add('hidden');
+                    return; // Stop the function here
+                }
+
+                fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ accession_id: accessionId })
+                })
+                .then(async response => {
+                    // --- Robust Error Handling ---
+                    if (!response.ok) {
+                        let errorMsg = `HTTP error! Status: ${response.status}`;
+                        try {
+                            const contentType = response.headers.get("content-type");
+                            if (contentType && contentType.indexOf("application/json") !== -1) {
+                                const errorData = await response.json();
+                                errorMsg = errorData.error || JSON.stringify(errorData);
+                            } else {
+                                errorMsg = await response.text();
+                            }
+                        } catch (e) {
+                            // Ignore parsing errors
+                        }
+                        throw new Error(errorMsg);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    loader.classList.add('hidden');
+                    if (data.error) {
+                        showError(data.error);
+                    } else {
+                        displayResults(data);
+                    }
+                })
+                .catch(error => {
+                    loader.classList.add('hidden');
+                    showError(error.message);
+                });
+            });
+
+            function displayResults(data) {
+                predictionText.textContent = `Prediction: ${data.prediction}`;
+                confidenceText.textContent = `Confidence: ${data.confidence}`;
+                resultDiv.classList.remove('hidden');
+
+                if (data.feature_importances && data.feature_importances.length > 0) {
+                    renderChart(data.feature_importances);
+                    chartContainer.classList.remove('hidden');
+                }
+            }
+
+            function renderChart(importances) {
+                const topFeatures = importances.slice(0, 15).reverse(); // Get top 15 for horizontal chart
+                const labels = topFeatures.map(item => item.feature);
+                const values = topFeatures.map(item => item.importance);
+
+                const ctx = document.getElementById('importanceChart').getContext('2d');
+                
+                if (featureChart) {
+                    featureChart.destroy();
+                }
+
+                featureChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Feature Importance',
+                            data: values,
+                            backgroundColor: 'rgba(88, 166, 255, 0.7)', // Windows 7 Blue
+                            borderColor: 'rgba(88, 166, 255, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // Make the bar chart horizontal
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Top 15 Most Important Genes for Prediction',
+                                color: '#e6edf3'
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(139, 148, 158, 0.2)'
+                                },
+                                ticks: {
+                                    color: '#8b949e'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Importance Score',
+                                    color: '#e6edf3'
+                                }
+                            },
+                             y: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    color: '#8b949e'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorDiv.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
+
